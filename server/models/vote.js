@@ -10,6 +10,7 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       models.Vote.belongsTo(models.User);
       models.Vote.belongsTo(models.Category);
+      models.Vote.hasMany(models.User_vote, { foreignKey: "voteId" });
       models.Vote.belongsToMany(models.User, {
         through: "User_vote",
         targetKey: "id",

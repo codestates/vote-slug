@@ -1,36 +1,15 @@
 const express = require("express");
+const { JsonWebTokenError } = require("jsonwebtoken");
 require("express-async-errors");
+const auth = require("../controller/auth");
 const { User, Vote, Category, User_vote } = require("../models");
 
 const router = express.Router();
 
+// categoryID GET
 router.get("/", async (req, res) => {
-  const { voteId, categoryId } = req.query;
-
-  //GET
+  const { categoryId } = req.query;
   try {
-    if (voteId) {
-      const selectedVote = await Vote.findByPk(voteId, {
-        attributes: [
-          "id",
-          "voteTitle",
-          "voteOption1",
-          "voteOption2",
-          "voteOption1Count",
-          "voteOption2Count",
-          "createdAt",
-          "User.nickname",
-          "Category.categoryTitle",
-        ],
-        include: [
-          { model: Category, attributes: ["categoryTitle"] },
-          { model: User, attributes: ["nickname"] },
-        ],
-      });
-      return res.status(200).json(selectedVote);
-    }
-
-    // GET /vote?category=:categoryId
     if (categoryId) {
       const selectedVoteList = await Vote.findAll({
         where: { categoryId: categoryId },
@@ -77,14 +56,45 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST
-router.post("/", async (req, res) => {
+router.get("/:voteId", async (req, res) => {
+  const { voteId } = req.params;
+  //GET
+  try {
+    if (voteId) {
+      const selectedVote = await Vote.findByPk(voteId, {
+        attributes: [
+          "id",
+          "voteTitle",
+          "voteOption1",
+          "voteOption2",
+          "voteOption1Count",
+          "voteOption2Count",
+          "createdAt",
+          "User.nickname",
+          "Category.categoryTitle",
+        ],
+        include: [
+          { model: Category, attributes: ["categoryTitle"] },
+          { model: User, attributes: ["nickname"] },
+        ],
+      });
+      return res.status(200).json(selectedVote);
+    }
+  } catch (err) {
+    console.log(err);
+    return res.sendStatus(500);
+  }
+});
+
+// POST (투표 생성)
+router.post("/", auth, async (req, res) => {
   // userId 필요
+  const userId = req.userId;
   const { voteTitle, categoryId, voteOption1, voteOption2 } = req.body;
 
   try {
     await Vote.create({
-      userId: 1,
+      userId,
       voteTitle,
       categoryId,
       voteOption1,
@@ -92,14 +102,13 @@ router.post("/", async (req, res) => {
     });
     return res.sendStatus(201);
   } catch (err) {
-    console.log(err);
     return res.sendStatus(500);
   }
 });
 
 // DELETE
-router.delete("/", async (req, res) => {
-  const { voteId } = req.query;
+router.delete("/:voetId", auth, async (req, res) => {
+  const { voteId } = req.params;
 
   try {
     await Vote.destroy({
@@ -107,19 +116,19 @@ router.delete("/", async (req, res) => {
     });
     return res.status(200).json({ message: "deleted" });
   } catch (err) {
-    console.log(err);
     return res.sendStatus(500);
   }
 });
 
 // PATCH
-router.patch("/", async (req, res) => {
+router.patch("/", auth, async (req, res) => {
+  const userId = req.userId;
   const { voteId, voteOption1, voteOption2 } = req.body;
   try {
     if (voteOption1) {
       await Vote.increment({ voteOption1Count: 1 }, { where: { id: voteId } });
       await User_vote.create({
-        userId: 1,
+        userId,
         voteId,
         voteOption1: true,
         voteOption2: false,
@@ -146,7 +155,7 @@ router.patch("/", async (req, res) => {
     } else if (voteOption2) {
       await Vote.increment({ voteOption2Count: 1 }, { where: { id: voteId } });
       await User_vote.create({
-        userId: 1,
+        userId,
         voteId,
         voteOption1: false,
         voteOption2: true,
@@ -172,7 +181,6 @@ router.patch("/", async (req, res) => {
       return res.status(200).json(participatedVote);
     }
   } catch (err) {
-    console.log(err);
     return res.sendStatus(500);
   }
 });
